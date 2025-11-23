@@ -49,12 +49,11 @@ export default function App() {
 
   // --- Scroll Lock ---
   useEffect(() => {
-    const isLocked = isSettingsOpen || selectedPdf || contextMenuPdf;
-    const html = document.documentElement;
-    const body = document.body;
-
-    if (isLocked) {
+    if (isSettingsOpen || selectedPdf || contextMenuPdf) {
       scrollPositionRef.current = window.scrollY;
+      const html = document.documentElement;
+      const body = document.body;
+      
       const styles = {
         position: 'fixed',
         top: `-${scrollPositionRef.current}px`,
@@ -63,23 +62,27 @@ export default function App() {
         overflow: 'hidden',
         overscrollBehavior: 'none',
       };
+
       Object.assign(body.style, styles);
       Object.assign(html.style, { overflow: 'hidden', height: '100%' });
     } else {
+      const html = document.documentElement;
+      const body = document.body;
+      
       body.removeAttribute('style');
       html.removeAttribute('style');
       window.scrollTo(0, scrollPositionRef.current);
     }
+    
     return () => {
-      body.removeAttribute('style');
-      html.removeAttribute('style');
+      document.body.removeAttribute('style');
+      document.documentElement.removeAttribute('style');
     };
   }, [isSettingsOpen, selectedPdf, contextMenuPdf]);
 
   // --- Init ---
   useEffect(() => {
-    // 使用一个固定的 Key，部署后你的数据就会稳定保存在这里
-    const savedSources = localStorage.getItem('pdf_lib_storage_final'); 
+    const savedSources = localStorage.getItem('pdf_lib_sources_v15'); // Final Key
     if (savedSources) {
       const parsed = JSON.parse(savedSources);
       setSources(parsed);
@@ -252,7 +255,7 @@ export default function App() {
 
   const updateSources = (newList) => {
     setSources(newList);
-    localStorage.setItem('pdf_lib_storage_final', JSON.stringify(newList));
+    localStorage.setItem('pdf_lib_sources_v15', JSON.stringify(newList));
   };
 
   const fetchAllPdfs = async (sourceList) => {
@@ -321,7 +324,7 @@ export default function App() {
     setIsSettingsOpen(false);
   };
 
-  // --- Smart Description (No Container for Short Text) ---
+  // --- Smart Description (Fixed Layout) ---
   const SmartDescription = ({ text, loading }) => {
     if (loading) {
       return (
@@ -345,19 +348,40 @@ export default function App() {
       );
     }
 
-    // Direct render for short text
     return (
-      <div className="text-sm text-gray-600 leading-relaxed pl-1">
+      <div className="text-sm text-gray-600 leading-relaxed">
         {text}
       </div>
     );
   };
 
+  // --- PdfCard (Restored Pointer-Events Logic) ---
   const PdfCard = ({ pdf, isActive, onSelect, onPreview, onOpenMenu }) => {
-    // Simplified click handler, relying on onClick standard event flow
+    const pressStartTime = useRef(0);
+    const isScrolling = useRef(false);
+
+    const handlePointerDown = () => {
+      pressStartTime.current = Date.now();
+      isScrolling.current = false;
+    };
+
+    const handleTouchMove = () => {
+      isScrolling.current = true;
+    };
+
+    const handlePointerUp = (e) => {
+      if (isScrolling.current) return; 
+      const pressDuration = Date.now() - pressStartTime.current;
+      if (pressDuration < 200) {
+        onSelect();
+      }
+    };
+
     return (
       <div 
-        onClick={onSelect}
+        onPointerDown={handlePointerDown}
+        onPointerUp={handlePointerUp}
+        onTouchMove={handleTouchMove}
         onContextMenu={(e) => e.preventDefault()}
         style={{ WebkitTapHighlightColor: 'transparent' }}
         className={`
@@ -374,6 +398,7 @@ export default function App() {
               </div>
               
               <div 
+                // --- 核心修复：补回了 pointer-events 逻辑 ---
                 className={`
                   flex items-center overflow-hidden transition-all duration-300 ease-out
                   ${isActive ? 'max-w-[100px] opacity-100 ml-1 pointer-events-auto' : 'max-w-0 opacity-0 pointer-events-none'}
@@ -422,7 +447,7 @@ export default function App() {
           </button>
           <a 
             href={pdf.downloadUrl}
-            target="_blank" // Added target blank for download reliability
+            target="_blank" 
             rel="noreferrer"
             onClick={(e) => e.stopPropagation()} 
             className="flex-1 py-3 flex items-center justify-center gap-1.5 text-sm font-medium text-gray-600 hover:bg-gray-100 active:bg-gray-200 transition-colors"
@@ -515,8 +540,6 @@ export default function App() {
                
                <a 
                   href={pdf.downloadUrl}
-                  target="_blank" // Target blank to force download in new tab if blocked
-                  rel="noreferrer"
                   className="flex items-center justify-center gap-2 p-3 bg-white border border-gray-200 text-gray-700 rounded-xl active:bg-gray-50 transition-colors"
                >
                   <Download className="w-5 h-5" />
