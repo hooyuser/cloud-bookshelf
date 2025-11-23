@@ -1,9 +1,23 @@
 <!doctype html>
-<html lang="en">
+<html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    
+    <!-- 核心：引入 PWA 配置文件 (必须要有 public/manifest.json) -->
+    <link rel="manifest" href="/manifest.json">
+    
+    <!-- 移动端视口设置：禁止缩放，适配刘海屏 -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    
+    <!-- Android 主题色 -->
+    <meta name="theme-color" content="#ffffff">
+    
+    <!-- iOS PWA 设置 -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="云书架">
+    
     <title>我的云书架</title>
   </head>
   <body>
