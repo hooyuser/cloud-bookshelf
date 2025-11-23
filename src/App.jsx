@@ -49,11 +49,12 @@ export default function App() {
 
   // --- Scroll Lock ---
   useEffect(() => {
-    if (isSettingsOpen || selectedPdf || contextMenuPdf) {
+    const isLocked = isSettingsOpen || selectedPdf || contextMenuPdf;
+    const html = document.documentElement;
+    const body = document.body;
+
+    if (isLocked) {
       scrollPositionRef.current = window.scrollY;
-      const html = document.documentElement;
-      const body = document.body;
-      
       const styles = {
         position: 'fixed',
         top: `-${scrollPositionRef.current}px`,
@@ -62,27 +63,22 @@ export default function App() {
         overflow: 'hidden',
         overscrollBehavior: 'none',
       };
-
       Object.assign(body.style, styles);
       Object.assign(html.style, { overflow: 'hidden', height: '100%' });
     } else {
-      const html = document.documentElement;
-      const body = document.body;
-      
       body.removeAttribute('style');
       html.removeAttribute('style');
       window.scrollTo(0, scrollPositionRef.current);
     }
-    
     return () => {
-      document.body.removeAttribute('style');
-      document.documentElement.removeAttribute('style');
+      body.removeAttribute('style');
+      html.removeAttribute('style');
     };
   }, [isSettingsOpen, selectedPdf, contextMenuPdf]);
 
-  // --- Init ---
+  // --- Init & Global Listeners ---
   useEffect(() => {
-    const savedSources = localStorage.getItem('pdf_lib_sources_v15'); // Final Key
+    const savedSources = localStorage.getItem('pdf_lib_sources_v15'); 
     if (savedSources) {
       const parsed = JSON.parse(savedSources);
       setSources(parsed);
@@ -95,8 +91,16 @@ export default function App() {
       setIsSettingsOpen(true);
     }
 
+    // --- 核心修复逻辑在这里 ---
     const handleGlobalClick = (e) => {
+      // 1. 如果点击的是卡片本身，由卡片处理，这里忽略
       if (e.target.closest('.pdf-card-interactive')) return;
+      
+      // 2. 【新增】如果点击的是详情面板内部，绝对不要取消选中！
+      // 否则会触发 React 重渲染，导致第一次点击事件丢失
+      if (e.target.closest('.context-sheet-content')) return;
+
+      // 3. 只有点击真正的“空白背景”时，才取消选中
       setActiveCardId(null);
     };
     
@@ -324,7 +328,7 @@ export default function App() {
     setIsSettingsOpen(false);
   };
 
-  // --- Smart Description (Fixed Layout) ---
+  // --- Smart Description ---
   const SmartDescription = ({ text, loading }) => {
     if (loading) {
       return (
@@ -355,7 +359,6 @@ export default function App() {
     );
   };
 
-  // --- PdfCard (Restored Pointer-Events Logic) ---
   const PdfCard = ({ pdf, isActive, onSelect, onPreview, onOpenMenu }) => {
     const pressStartTime = useRef(0);
     const isScrolling = useRef(false);
@@ -398,7 +401,6 @@ export default function App() {
               </div>
               
               <div 
-                // --- 核心修复：补回了 pointer-events 逻辑 ---
                 className={`
                   flex items-center overflow-hidden transition-all duration-300 ease-out
                   ${isActive ? 'max-w-[100px] opacity-100 ml-1 pointer-events-auto' : 'max-w-0 opacity-0 pointer-events-none'}
@@ -492,8 +494,9 @@ export default function App() {
         onClick={onClose}
       >
         <div 
+          // 核心修复：添加 context-sheet-content 标识类
           style={{ maxHeight: `${panelMaxHeightRef.current}px` }}
-          className="bg-white rounded-t-2xl p-6 pb-8 w-full max-w-3xl mx-auto animate-in slide-in-from-bottom duration-300 overflow-y-auto overscroll-contain touch-pan-y" 
+          className="context-sheet-content bg-white rounded-t-2xl p-6 pb-8 w-full max-w-3xl mx-auto animate-in slide-in-from-bottom duration-300 overflow-y-auto overscroll-contain touch-pan-y" 
           onClick={(e) => e.stopPropagation()}
         >
           <div className="flex items-start gap-4 mb-5">
@@ -540,6 +543,8 @@ export default function App() {
                
                <a 
                   href={pdf.downloadUrl}
+                  target="_blank" 
+                  rel="noreferrer"
                   className="flex items-center justify-center gap-2 p-3 bg-white border border-gray-200 text-gray-700 rounded-xl active:bg-gray-50 transition-colors"
                >
                   <Download className="w-5 h-5" />
